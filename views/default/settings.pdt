@@ -1,0 +1,34 @@
+
+	<ul>
+		<li>
+			<?php
+			$this->Form->label($this->_('Rave.live_public_key', true), 'live_public_key');
+			$this->Form->fieldText('live_public_key', $this->Html->ifSet($meta['live_public_key']), ['id' => 'live_public_key']);
+			?>
+		</li>
+		<li>
+			<?php
+			$this->Form->label($this->_('Rave.live_secret_key', true), 'live_secret_key');
+			$this->Form->fieldText('live_secret_key', $this->Html->ifSet($meta['live_secret_key']), ['id' => 'live_secret_key']);
+			?>
+		</li>
+		<li>
+			<?php
+			$this->Form->label($this->_('Rave.test_public_key', true), 'test_public_key');
+			$this->Form->fieldText('test_public_key', $this->Html->ifSet($meta['test_public_key']), ['id' => 'test_public_key']);
+			?>
+		</li>
+		<li>
+			<?php
+			$this->Form->label($this->_('Rave.test_secret_key', true), 'test_secret_key');
+			$this->Form->fieldText('test_secret_key', $this->Html->ifSet($meta['test_secret_key']), ['id' => 'test_secret_key']);
+			?>
+		</li>
+		<li>
+			<?php
+			$this->Form->fieldCheckbox('live_mode', 'true', ($this->Html->ifSet($meta['live_mode'], 'false') == 'true'), ['id' => 'live_mode']);
+			$this->Form->label($this->_('Rave.live_mode', true), 'live_mode', ['class' => 'inline']);
+			?>
+			<span class="tooltip"><?php $this->_("AppController.tooltip.text");?><div><?php $this->_("Rave.key_note");?></div></span>
+		</li>
+	</ul>

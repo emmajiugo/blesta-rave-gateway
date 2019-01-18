@@ -1,0 +1,13 @@
+{
+	"version": "1.0.0",
+	"name": "Rave.name",
+	"description": "Supports: Credit Cards, Bank Account, Mobile Money, Barter.",
+	"authors": [
+		{
+			"name": "Emmajiugo",
+			"url": "http://www.github.com/emmajiugo"
+		}
+	],
+	"currencies": ["NGN", "USD", "EUR", "GBP", "UGX", "TZS", "ZAR", "GHS", "KES"],
+	"signup_url": "https://rave.flutterwave.com"
+}
