@@ -12,7 +12,7 @@ class Rave extends NonmerchantGateway {
 	/**
 	 * @var string The version of this gateway
 	 */
-	private static $version = "1.0.0";
+	private static $version = "1.0.1";
 	/**
 	 * @var string The authors of this gateway
 	 */
@@ -45,41 +45,41 @@ class Rave extends NonmerchantGateway {
 		$this->loadConfig(dirname(__FILE__) . DS . 'config.json');
 	}
 	
-	/**
-	 * Returns the name of this gateway
-	 *
-	 * @return string The common name of this gateway
-	 */
-	public function getName() {
-		return Language::_("Rave.name", true);
-	}
+// 	/**
+// 	 * Returns the name of this gateway
+// 	 *
+// 	 * @return string The common name of this gateway
+// 	 */
+// 	public function getName() {
+// 		return Language::_("Rave.name", true);
+// 	}
 	
-	/**
-	 * Returns the version of this gateway
-	 *
-	 * @return string The current version of this gateway
-	 */
-	public function getVersion() {
-		return self::$version;
-	}
+// 	/**
+// 	 * Returns the version of this gateway
+// 	 *
+// 	 * @return string The current version of this gateway
+// 	 */
+// 	public function getVersion() {
+// 		return self::$version;
+// 	}
 
-	/**
-	 * Returns the name and URL for the authors of this gateway
-	 *
-	 * @return array The name and URL of the authors of this gateway
-	 */
-	public function getAuthors() {
-		return self::$authors;
-	}
+// 	/**
+// 	 * Returns the name and URL for the authors of this gateway
+// 	 *
+// 	 * @return array The name and URL of the authors of this gateway
+// 	 */
+// 	public function getAuthors() {
+// 		return self::$authors;
+// 	}
 	
-	/**
-	 * Return all currencies supported by this gateway
-	 *
-	 * @return array A numerically indexed array containing all currency codes (ISO 4217 format) this gateway supports
-	 */
-	public function getCurrencies() {
-		return array("NGN", "USD", "EUR", "GBP", "UGX", "TZS", "ZAR", "GHS", "KES");
-	}
+// 	/**
+// 	 * Return all currencies supported by this gateway
+// 	 *
+// 	 * @return array A numerically indexed array containing all currency codes (ISO 4217 format) this gateway supports
+// 	 */
+// 	public function getCurrencies() {
+// 		return array("NGN", "USD", "EUR", "GBP", "UGX", "TZS", "ZAR", "GHS", "KES");
+// 	}
 	
 	/**
 	 * Sets the currency code to be used for all subsequent payments
@@ -152,10 +152,6 @@ class Rave extends NonmerchantGateway {
                 ]
             ]
 			
-			#
-			# TODO: Do error checking on any other fields that require it
-			#
-			
 		);
 		
 		$this->Input->setRules($rules);
@@ -172,11 +168,7 @@ class Rave extends NonmerchantGateway {
 	 * @return array An array of the field names to encrypt when storing in the database
 	 */
 	public function encryptableFields() {
-		
-		#
-		# TODO: return an array of all meta field names to store encrypted
-		#
-		
+
 		return ['live_public_key', 'live_secret_key'];
 	}
 	
@@ -227,24 +219,6 @@ class Rave extends NonmerchantGateway {
 	 * 		- period The recurring period (day, week, month, year, onetime) used in conjunction with term in order to determine the next recurring payment
 	 * @return string HTML markup required to render an authorization and capture payment form
 	 */
-	/*public function buildProcess(array $contact_info, $amount, array $invoice_amounts=null, array $options=null) {
-		$this->view = $this->makeView("process", "default", str_replace(ROOTWEBDIR, "", dirname(__FILE__) . DS));
-
-		// Load the helpers required for this view
-		Loader::loadHelpers($this, array("Form", "Html"));
-
-		$fields = array();
-		$post_to = "";
-		
-		#
-		# TODO: Define all form fields and the $post_to fields
-		#
-
-		$this->view->set("post_to", $post_to);
-		$this->view->set("fields", $fields);
-		
-		return $this->view->fetch();
-	}*/
 	public function buildProcess(array $contact_info, $amount, array $invoice_amounts = null, array $options = null)
     {
         // Load the models required
@@ -254,14 +228,17 @@ class Rave extends NonmerchantGateway {
 		
 		// Get the url to send params
 		if ($this->meta['live_mode']) {
-			$url = $this->live_url."/flwv3-pug/getpaidx/api/v2/hosted/pay";
+			$url = $this->live_url;
 			$pkey = $this->meta['live_public_key'];
-			// $skey = $this->meta['live_secret_key'];
+			$skey = $this->meta['live_secret_key'];
 		} else {
-			$url = $this->test_url."/flwv3-pug/getpaidx/api/v2/hosted/pay";
+			$url = $this->test_url;
 			$pkey = $this->meta['test_public_key'];
-			// $skey = $this->meta['test_secret_key'];
+			$skey = $this->meta['test_secret_key'];
 		}
+
+		// Load Rave API
+		$api = $this->getApi($skey, $pkey, $url);
 
 		// set parameter to send to API
         $params = [
@@ -271,12 +248,14 @@ class Rave extends NonmerchantGateway {
 			'txref'=>"BLESTA-".time(),
 			'PBFPubKey'=>$pkey,
 			'redirect_url'=>$this->ifSet($options['return_url']),
-		];		
+		];
 
-        // Load the Rave Standard
-        $hosted_url = $this->postCURL($url, $params);
+		// Get the url to redirect the client to rave standard
+		$result = $api->buildPayment($params);
+		$data = $result->data();
+		$rave_url = isset($data->link) ? $data->link : '';
 
-        return $this->buildForm($hosted_url);
+        return $this->buildForm($rave_url);
     }
 
     /**
@@ -289,52 +268,11 @@ class Rave extends NonmerchantGateway {
         $this->view = $this->makeView('process', 'default', str_replace(ROOTWEBDIR, '', dirname(__FILE__) . DS));
 
         // Load the helpers required for this view
-        Loader::loadHelpers($this, ['Form', 'Html']);
+		Loader::loadHelpers($this, ['Form', 'Html']);
 
         $this->view->set('post_to', $post_to);
-        return $this->view->fetch();
-	}
-	
-	/**
-	 * CURL
-	 */
-	public function postCURL($url, $params) {
-
-		$curl = curl_init();
-		curl_setopt_array($curl, array(
-		CURLOPT_URL => $url,
-		CURLOPT_RETURNTRANSFER => true,
-		CURLOPT_CUSTOMREQUEST => "POST",
-		CURLOPT_POSTFIELDS => json_encode($params),
-		CURLOPT_HTTPHEADER => [
-			"content-type: application/json",
-			"cache-control: no-cache"
-		],
-		));
-
-		$response = curl_exec($curl);
-		$err = curl_error($curl);
-
-		if($err){
-			// there was an error contacting the rave API
-			die('Curl returned error: ' . $err);
-		}
-
-		$transaction = json_decode($response);
-
-		if(!$transaction->data && !$transaction->data->link){
-			// there was an error from the API
-			print_r('API returned error: ' . $transaction->message);
-		}
-
-		// uncomment out this line if you want to redirect the user to the payment page
-		//print_r($transaction->data->message);
-
-
-		// redirect to page so User can pay
-		// uncomment this line to allow the user redirect to the payment page
-		// header('Location: ' . $transaction->data->link);
-		return $transaction->data->link;
+        // return $this->view->fetch();
+        return header('Location: '. $link);
 	}
 
 
@@ -455,6 +393,21 @@ class Rave extends NonmerchantGateway {
 		
 		$this->Input->setErrors($this->getCommonError("unsupported"));
 	}
+
+	/**
+     * Initializes the Rave API and returns an instance of that object with the given account information set.
+     *
+     * @param string $skey secret key
+	 * @param string $pkey public key
+     * @return RaveApi A Rave instance
+     */
+    private function getApi($skey, $pkey, $url)
+    {
+        // Load library methods
+        Loader::load(dirname(__FILE__) . DS . 'lib' . DS . 'rave_api.php');
+
+        return new RaveApi($skey, $pkey, $url);
+    }
 	
 }
 ?>
