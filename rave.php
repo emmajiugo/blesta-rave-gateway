@@ -323,7 +323,7 @@ class Rave extends NonmerchantGateway {
 		$result = $api->checkPayment($verifyParams);
 		$data = $result->data();
 
-		file_put_contents(time(), json_encode($data));
+		// file_put_contents(time(), json_encode($data));
 
 		// Log response received from verify
         $this->log(
@@ -361,7 +361,7 @@ class Rave extends NonmerchantGateway {
         ];
 
 		
-		// file_put_contents(time(), $callback_data->data->data->txRef);
+		// file_put_contents(time(), $callback_data->data->tx->txRef);
 	}
 	
 	/**
