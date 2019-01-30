@@ -45,42 +45,6 @@ class Rave extends NonmerchantGateway {
 		$this->loadConfig(dirname(__FILE__) . DS . 'config.json');
 	}
 	
-// 	/**
-// 	 * Returns the name of this gateway
-// 	 *
-// 	 * @return string The common name of this gateway
-// 	 */
-// 	public function getName() {
-// 		return Language::_("Rave.name", true);
-// 	}
-	
-// 	/**
-// 	 * Returns the version of this gateway
-// 	 *
-// 	 * @return string The current version of this gateway
-// 	 */
-// 	public function getVersion() {
-// 		return self::$version;
-// 	}
-
-// 	/**
-// 	 * Returns the name and URL for the authors of this gateway
-// 	 *
-// 	 * @return array The name and URL of the authors of this gateway
-// 	 */
-// 	public function getAuthors() {
-// 		return self::$authors;
-// 	}
-	
-// 	/**
-// 	 * Return all currencies supported by this gateway
-// 	 *
-// 	 * @return array A numerically indexed array containing all currency codes (ISO 4217 format) this gateway supports
-// 	 */
-// 	public function getCurrencies() {
-// 		return array("NGN", "USD", "EUR", "GBP", "UGX", "TZS", "ZAR", "GHS", "KES");
-// 	}
-	
 	/**
 	 * Sets the currency code to be used for all subsequent payments
 	 *
@@ -240,15 +204,33 @@ class Rave extends NonmerchantGateway {
 		// Load Rave API
 		$api = $this->getApi($skey, $pkey, $url);
 
+		// $redirect_url1 = $this->ifSet($options['return_url']);
+		$redirect_url2 = Configure::get('Blesta.gw_callback_url')
+		. Configure::get('Blesta.company_id') . '/rave/?client_id='
+		. $this->ifSet($contact_info['client_id']);
+
 		// set parameter to send to API
+		$invoices = serialize($invoice_amounts);
         $params = [
 			'amount'=>$amount,
 			'customer_email'=>$client->email,
 			'currency'=>$this->currency,
-			'txref'=>"BLESTA-".time(),
+			'txref'=>"BLST-".time(),
 			'PBFPubKey'=>$pkey,
-			'redirect_url'=>$this->ifSet($options['return_url']),
+			'redirect_url'=>$redirect_url2,
+			'meta' => array(
+				[
+					'metaname' => 'clientID',
+					'metavalue' => $contact_info['client_id']
+				],
+				[
+					'metaname' => 'invoices',
+					'metavalue' => $invoices
+				]
+            ),
 		];
+		
+		
 
 		// Get the url to redirect the client to rave standard
 		$result = $api->buildPayment($params);
@@ -271,8 +253,7 @@ class Rave extends NonmerchantGateway {
 		Loader::loadHelpers($this, ['Form', 'Html']);
 
         $this->view->set('post_to', $post_to);
-        // return $this->view->fetch();
-        return header('Location: '. $link);
+        return $this->view->fetch();
 	}
 
 
@@ -295,15 +276,92 @@ class Rave extends NonmerchantGateway {
 	 */
 	public function validate(array $get, array $post) {
 
-		#
-		# TODO: Verify the get/post data, then return the transaction
-		#
-		#
+		// Get the response callback
+		$callback_data = json_decode($post['resp']);
 
-		// Log the successful response
-		$this->log($this->ifSet($_SERVER['REQUEST_URI']), serialize($post), "output", true);
+		// Log request received
+        $this->log(
+            $this->ifSet($_SERVER['REQUEST_URI']),
+            json_encode(
+                $callback_data,
+                JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
+            ),
+            'output',
+            true
+        );
+
+		// Get the url to send params
+		if ($this->meta['live_mode']) {
+			$url = $this->live_url;
+			$pkey = $this->meta['live_public_key'];
+			$skey = $this->meta['live_secret_key'];
+		} else {
+			$url = $this->test_url;
+			$pkey = $this->meta['test_public_key'];
+			$skey = $this->meta['test_secret_key'];
+		}
+
+		// Load Rave API
+		$api = $this->getApi($skey, $pkey, $url);
 		
-		return array();
+
+        // Log data sent for validation
+        $this->log(
+            'validate',
+            json_encode([
+				'txref' => $callback_data->data->tx->txRef, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT
+			]),
+            'output',
+            true
+		);
+
+		// verify transaction
+		$verifyParams = [
+			'txref' => $callback_data->data->tx->txRef,
+  			'SECKEY' => $skey 
+		];
+		$result = $api->checkPayment($verifyParams);
+		$data = $result->data();
+
+		file_put_contents(time(), json_encode($data));
+
+		// Log response received from verify
+        $this->log(
+            'verify response',
+            json_encode($data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT),
+            'output',
+            true
+		);
+
+		// Get client ID and invoice from metadata
+		$metadata = $this->ifSet($data->meta);
+		foreach ($metadata as $value) {
+			if ($value->metaname == 'clientID') {
+				$client_id = $value->metavalue;
+			}
+
+			if ($value->metaname == 'invoices') {
+				$invoices = $value->metavalue;
+			}
+		}
+		
+		// decode the invoices
+		$final_invoices = unserialize($invoices);
+		
+        //return final response for blesta
+		return [
+            'client_id' => $this->ifSet($client_id),
+            'amount' => $this->ifSet($data->amount),
+            'currency' => $this->ifSet($data->currency),
+			'status' => $this->ifSet($data->chargecode) == '00' || $this->ifSet($data->chargecode) == '0' ? 'approved' : 'declined', // we wouldn't be here if it weren't, right?
+			'reference_id' => null,
+			'transaction_id' => $this->ifSet($data->txref),
+			'parent_transaction_id' => null,
+            'invoices' => $this->ifSet($final_invoices)
+        ];
+
+		
+		// file_put_contents(time(), $callback_data->data->data->txRef);
 	}
 	
 	/**
@@ -323,12 +381,54 @@ class Rave extends NonmerchantGateway {
 	 * 	- transaction_id The ID returned by the gateway to identify this transaction
 	 */
 	public function success(array $get, array $post) {
+
+		// Get the url to send params
+		if ($this->meta['live_mode']) {
+			$url = $this->live_url;
+			$pkey = $this->meta['live_public_key'];
+			$skey = $this->meta['live_secret_key'];
+		} else {
+			$url = $this->test_url;
+			$pkey = $this->meta['test_public_key'];
+			$skey = $this->meta['test_secret_key'];
+		}
+
+		// Load Rave API
+		$api = $this->getApi($skey, $pkey, $url);
+
+		// verify transaction
+		$verifyParams = [
+			'txref' => $this->ifSet($get['txref']),
+  			'SECKEY' => $skey 
+		];
+		$result = $api->checkPayment($verifyParams);
+		$data = $result->data();
+
+		// Get client ID and invoice from metadata
+		$metadata = $this->ifSet($data->meta);
+		foreach ($metadata as $value) {
+			if ($value->metaname == 'clientID') {
+				$client_id = $value->metavalue;
+			}
+
+			if ($value->metaname == 'invoices') {
+				$invoices = $value->metavalue;
+			}
+		}
 		
-		#
-		# TODO: Return transaction data, if possible
-		#
+		// decode the invoices
+		$final_invoices = unserialize($invoices);
 		
-		$this->Input->setErrors($this->getCommonError("unsupported"));
+        //return final response for blesta
+		return [
+            'client_id' => $this->ifSet($client_id),
+            'amount' => $this->ifSet($data->amount),
+            'currency' => $this->ifSet($data->currency),
+            'status' => 'approved', // we wouldn't be here if it weren't, right?
+            'transaction_id' => $this->ifSet($data->txref),
+            'invoices' => $this->ifSet($final_invoices)
+        ];
+        
 	}
 	
 	/**

@@ -83,8 +83,8 @@ class RaveApi
      * @param string $reference The unique reference code for this payment
      * @return stdClass An object containing the api response
      */
-    public function checkPayment($reference)
+    public function checkPayment($verifyParams)
     {
-        return $this->apiRequest('/transaction/verify/' . $reference, [], 'GET');
+        return $this->postApiRequest('/flwv3-pug/getpaidx/api/v2/verify', $verifyParams);
     }
 }

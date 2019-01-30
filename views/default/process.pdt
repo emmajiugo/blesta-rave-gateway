@@ -2,12 +2,8 @@
 	<?php
 	// Disable CSRF for this form
 	$this->Form->setCsrfOptions(array('set_on_create' => false));
-	$this->Form->create($post_to);
-	if ($this->Html->ifSet($fields)) {
-		foreach ($fields as $key => $value) {
-			$this->Form->fieldHidden($key, $value);
-		}
-	}
+	$this->Form->create($post_to, ['method' => 'GET']);
+	
 	
 	$this->Form->fieldSubmit("submit", $this->_("Rave.buildprocess.submit", true));
 	
