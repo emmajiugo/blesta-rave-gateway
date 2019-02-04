@@ -28,7 +28,7 @@ Rave is available in:
 
 ## Install ##
 
-1. Download plugin **[here] ()
+1. Download plugin.![Rave Installation Screenshot](views/default/images/download.png)
 
 2. Unpack all files from ```Blesta-rave-gateway``` and upload the content into ```blesta\components\gateways\nonmerchant``` folder of your Blesta installation.
 
