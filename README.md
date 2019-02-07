@@ -30,7 +30,7 @@ Rave is available in:
 
 1. Download plugin.
 
-2. Unpack all files from ```Blesta-rave-gateway``` and upload the content into ```blesta\components\gateways\nonmerchant``` folder of your Blesta installation.
+2. Unpack all files from ```Blesta-rave-gateway``` plugin, extract the content into ```blesta\components\gateways\nonmerchant``` folder of your Blesta installation and rename the folder to ```rave```.
 
 3. In your Blesta Admin Dashboard, click ```Settings``` on the top right navigation and choose ```Payment Gateways```.![Rave Installation Screenshot](views/default/images/admin.png)
 
